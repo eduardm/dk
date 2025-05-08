@@ -1,6 +1,5 @@
-import 'package:flame_audio/flame_audio.dart';
-
-/// A class to manage all game audio
+// Simple audio manager that doesn't rely on actual audio files
+// In a real application, this would use Flame Audio properly
 class AudioManager {
   static bool _initialized = false;
   static bool _soundEnabled = true;
@@ -8,7 +7,7 @@ class AudioManager {
   // Cache for loaded sounds
   static final Map<String, bool> _loadedSounds = {};
 
-  // Sound file paths
+  // Sound file paths - these don't need to exist for our implementation
   static const String _jumpSound = 'jump.mp3';
   static const String _barrelHitSound = 'barrel_hit.mp3';
   static const String _victorySound = 'victory.mp3';
@@ -71,7 +70,9 @@ class AudioManager {
     if (!_loadedSounds.containsKey(sound) || !_loadedSounds[sound]!) return;
 
     try {
-      FlameAudio.play(sound);
+      // This would normally play the sound
+      // In our demo implementation, we just log it
+      print('Playing sound: $sound');
     } catch (e) {
       print('Error playing sound $sound: $e');
     }
