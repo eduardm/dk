@@ -48,39 +48,35 @@ class DonkeyKongFlameGame extends FlameGame {
   Future<void> onLoad() async {
     await super.onLoad();
     final margin = 24.0;
-    final padBottom = 120.0;
+    final padBottom = 140.0; // raised from 120
     final platformHeight = 16.0;
-    // Platforms (bottom to top)
-    add(PlatformComponent(
-      position: Vector2(margin, size.y - padBottom - platformHeight),
-      size: Vector2(size.x - margin * 2, platformHeight),
-    ));
-    add(PlatformComponent(
-      position: Vector2(margin * 2, size.y - padBottom - 70),
-      size: Vector2(size.x - margin * 4, platformHeight),
-    ));
-    add(PlatformComponent(
-      position: Vector2(margin, size.y - padBottom - 140),
-      size: Vector2(size.x - margin * 2, platformHeight),
-    ));
-    add(PlatformComponent(
-      position: Vector2(margin * 2.5, padBottom + 60),
-      size: Vector2(size.x - margin * 5, platformHeight),
-    ));
-    // Ladders
-    add(LadderComponent(position: Vector2(100, size.y - padBottom - 80), size: Vector2(16, 80)));
-    add(LadderComponent(position: Vector2(size.x * 0.55, size.y - padBottom - 130), size: Vector2(16, 60)));
-    add(LadderComponent(position: Vector2(size.x * 0.7, padBottom + 60), size: Vector2(16, 100)));
-    // Player above controls, left
-    final player = PlayerComponent()..position = Vector2(margin + 16, size.y - padBottom - 32);
+    final nLevels = 4;
+    final levelSpacing = (size.y - padBottom - 100) / (nLevels - 1);
+
+    // Place platforms (bottom to top)
+    List<double> platformYs = List.generate(nLevels, (i) => size.y - padBottom - i * levelSpacing);
+    // Zigzag X for platforms
+    List<double> platformXs = [margin, size.x * 0.33, margin, size.x * 0.2];
+    List<double> platformWidths = [size.x - margin * 2, size.x * 0.6, size.x - margin * 2, size.x * 0.6];
+    for (int i = 0; i < nLevels; i++) {
+      add(PlatformComponent(
+        position: Vector2(platformXs[i], platformYs[i]),
+        size: Vector2(platformWidths[i], platformHeight),
+      ));
+    }
+    // Add ladders between platforms, staggered L/R
+    add(LadderComponent(position: Vector2(margin + 30, platformYs[1]), size: Vector2(16, levelSpacing)));
+    add(LadderComponent(position: Vector2(size.x * 0.8, platformYs[2]), size: Vector2(16, levelSpacing)));
+    add(LadderComponent(position: Vector2(margin + 60, platformYs[3]), size: Vector2(16, levelSpacing)));
+    // Player: above controls, left on bottom stage
+    final player = PlayerComponent()..position = Vector2(margin + 24, platformYs[0] - 32);
     playerRef = player;
     add(player);
-    // DK at the top platform
-    add(KongComponent(position: Vector2(margin + 40, padBottom + 9)));
-    // Princess at top right
-    add(PrincessComponent(position: Vector2(size.x - margin - 40, padBottom + 10)));
+    // DK and Princess at top platform
+    add(KongComponent(position: Vector2(platformXs[3] + 30, platformYs[3] - 30)));
+    add(PrincessComponent(position: Vector2(platformXs[3] + platformWidths[3] - 44, platformYs[3] - 34)));
     // Initial barrel as placeholder
-    add(BarrelComponent(position: Vector2(margin + 100, padBottom + 35)));
+    add(BarrelComponent(position: Vector2(platformXs[2] + 100, platformYs[2] - 15)));
   }
 }
 
