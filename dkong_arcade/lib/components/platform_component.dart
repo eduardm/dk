@@ -1,8 +1,12 @@
 import "package:flame/components.dart";
 
-class PlatformComponent extends PositionComponent {
+class PlatformComponent extends SpriteComponent {
   PlatformComponent({required Vector2 position, required Vector2 size})
       : super(position: position, size: size);
-  // TODO: Sprite, collision, barrel logic, etc.
+
+  @override
+  Future<void> onLoad() async {
+    sprite = await Sprite.load("platform.png");
+  }
 }
 

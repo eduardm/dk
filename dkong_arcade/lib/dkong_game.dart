@@ -47,25 +47,40 @@ class DonkeyKongFlameGame extends FlameGame {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    // Platforms (just 4 platforms for now)
-    add(PlatformComponent(position: Vector2(20, size.y - 40), size: Vector2(size.x - 40, 16)));
-    add(PlatformComponent(position: Vector2(40, size.y - 120), size: Vector2(size.x - 60, 16)));
-    add(PlatformComponent(position: Vector2(20, size.y - 200), size: Vector2(size.x - 40, 16)));
-    add(PlatformComponent(position: Vector2(60, 80), size: Vector2(size.x - 120, 16)));
+    final margin = 24.0;
+    final padBottom = 120.0;
+    final platformHeight = 16.0;
+    // Platforms (bottom to top)
+    add(PlatformComponent(
+      position: Vector2(margin, size.y - padBottom - platformHeight),
+      size: Vector2(size.x - margin * 2, platformHeight),
+    ));
+    add(PlatformComponent(
+      position: Vector2(margin * 2, size.y - padBottom - 70),
+      size: Vector2(size.x - margin * 4, platformHeight),
+    ));
+    add(PlatformComponent(
+      position: Vector2(margin, size.y - padBottom - 140),
+      size: Vector2(size.x - margin * 2, platformHeight),
+    ));
+    add(PlatformComponent(
+      position: Vector2(margin * 2.5, padBottom + 60),
+      size: Vector2(size.x - margin * 5, platformHeight),
+    ));
     // Ladders
-    add(LadderComponent(position: Vector2(100, size.y - 90), size: Vector2(16, 80)));
-    add(LadderComponent(position: Vector2(200, size.y - 170), size: Vector2(16, 80)));
-    add(LadderComponent(position: Vector2(250, size.y - 270), size: Vector2(16, 100)));
-    // Player starting at bottom left
-    final player = PlayerComponent()..position = Vector2(40, size.y - 72);
+    add(LadderComponent(position: Vector2(100, size.y - padBottom - 80), size: Vector2(16, 80)));
+    add(LadderComponent(position: Vector2(size.x * 0.55, size.y - padBottom - 130), size: Vector2(16, 60)));
+    add(LadderComponent(position: Vector2(size.x * 0.7, padBottom + 60), size: Vector2(16, 100)));
+    // Player above controls, left
+    final player = PlayerComponent()..position = Vector2(margin + 16, size.y - padBottom - 32);
     playerRef = player;
     add(player);
     // DK at the top platform
-    add(KongComponent(position: Vector2(72, 48)));
+    add(KongComponent(position: Vector2(margin + 40, padBottom + 9)));
     // Princess at top right
-    add(PrincessComponent(position: Vector2(size.x - 80, 50)));
+    add(PrincessComponent(position: Vector2(size.x - margin - 40, padBottom + 10)));
     // Initial barrel as placeholder
-    add(BarrelComponent(position: Vector2(100, 100)));
+    add(BarrelComponent(position: Vector2(margin + 100, padBottom + 35)));
   }
 }
 
