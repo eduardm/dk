@@ -5,7 +5,7 @@ class KongComponent extends SpriteComponent {
 
   @override
   Future<void> onLoad() async {
-    sprite = await Sprite.load("images/kong.png");
+    sprite = await Sprite.load("kong.png");
   }
 }
 

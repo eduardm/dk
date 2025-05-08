@@ -5,7 +5,7 @@ class PrincessComponent extends SpriteComponent {
 
   @override
   Future<void> onLoad() async {
-    sprite = await Sprite.load("images/princess.png");
+    sprite = await Sprite.load("princess.png");
   }
 }
 

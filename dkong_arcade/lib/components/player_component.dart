@@ -5,7 +5,7 @@ class PlayerComponent extends SpriteComponent {
 
   @override
   Future<void> onLoad() async {
-    sprite = await Sprite.load("images/player.png");
+    sprite = await Sprite.load("player.png");
   }
 }
 
