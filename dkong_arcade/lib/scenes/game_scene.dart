@@ -15,16 +15,31 @@ class GameScene extends StatefulWidget {
 
 class _GameSceneState extends State<GameScene> {
   late DonkeyKongFlameGame _game;
+  int _lives = 3;
 
   @override
   void initState() {
     super.initState();
     _game = DonkeyKongFlameGame();
+    
+    // Set up callbacks
+    _game.setGameOverCallback(widget.onGameOver);
+    _game.setVictoryCallback(widget.onVictory);
+    
+    // Update lives display
+    _game.addObserver(() {
+      if (_lives != _game.lives) {
+        setState(() {
+          _lives = _game.lives;
+        });
+      }
+    });
   }
 
   void _handleDPad(DPadDirection dir, bool isPressed) {
     _game.handleDpadInput(dir, isPressed);
   }
+  
   void _handleJump(bool isPressed) {
     _game.handleJumpInput(isPressed);
   }
@@ -35,6 +50,30 @@ class _GameSceneState extends State<GameScene> {
       fit: StackFit.expand,
       children: [
         GameWidget(game: _game),
+        
+        // Lives display (top left)
+        Positioned(
+          top: 20,
+          left: 20,
+          child: Row(
+            children: [
+              const Icon(Icons.favorite, color: Colors.red, size: 28),
+              const SizedBox(width: 8),
+              Text(
+                "× $_lives",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        
         // D-Pad (bottom left)
         Positioned(
           left: 0,
@@ -43,6 +82,7 @@ class _GameSceneState extends State<GameScene> {
             onDirectionChanged: _handleDPad,
           ),
         ),
+        
         // Jump button (bottom right)
         Positioned(
           right: 0,
@@ -51,21 +91,34 @@ class _GameSceneState extends State<GameScene> {
             onJumpChanged: _handleJump,
           ),
         ),
+        
         // Exit button (top right)
         Positioned(
-          top: 36,
-          right: 24,
+          top: 20,
+          right: 20,
           child: ElevatedButton.icon(
             onPressed: widget.onGameOver,
             icon: const Icon(Icons.close),
             label: const Text("Exit"),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: Colors.red.withOpacity(0.7),
+              foregroundColor: Colors.white,
             ),
           ),
         ),
       ],
     );
+  }
+  
+  @override
+  void dispose() {
+    // Clean up game resources
+    _game.cleanUp();
+    
+    // Ensure game is properly cleaned up
+    _game.pauseEngine();
+    
+    super.dispose();
   }
 }
 

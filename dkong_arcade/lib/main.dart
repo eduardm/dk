@@ -14,6 +14,22 @@ void main() async {
   // Force portrait up, immersive mode
   await Flame.device.fullScreen();
   await Flame.device.setPortrait();
+  
+  // Initialize Flame
+  try {
+    // Basic initialization - audio will be handled by AudioManager
+    await Flame.images.loadAll([
+      'player.png',
+      'barrel.png',
+      'platform.png',
+      'kong.png',
+      'princess.png',
+      'ladder.png',
+      'heart.png',
+    ]);
+  } catch (e) {
+    print('Error initializing flame: $e');
+  }
 
   runApp(const DonkeyKongArcadeApp());
 }
