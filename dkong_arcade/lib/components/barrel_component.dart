@@ -5,7 +5,7 @@ class BarrelComponent extends SpriteComponent {
 
   @override
   Future<void> onLoad() async {
-    sprite = await Sprite.load("barrel.png");
+    sprite = await Sprite.load("images/barrel.png");
   }
 }
 
