@@ -24,7 +24,7 @@ class JumpButton extends StatelessWidget {
           ),
           child: const Center(
             child: Text(
-              JUMP,
+              "JUMP",
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
