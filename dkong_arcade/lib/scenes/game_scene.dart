@@ -26,11 +26,16 @@ class _GameSceneState extends State<GameScene> {
     _game.setGameOverCallback(widget.onGameOver);
     _game.setVictoryCallback(widget.onVictory);
     
-    // Update lives display
+    // Update lives display using a delayed callback to avoid setState during build
     _game.addObserver(() {
       if (_lives != _game.lives) {
-        setState(() {
-          _lives = _game.lives;
+        // Use Future.microtask to avoid calling setState during build
+        Future.microtask(() {
+          if (mounted) {
+            setState(() {
+              _lives = _game.lives;
+            });
+          }
         });
       }
     });

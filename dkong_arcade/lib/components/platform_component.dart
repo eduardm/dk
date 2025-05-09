@@ -6,7 +6,8 @@ import "../dkong_game.dart";
 class PlatformComponent extends SpriteComponent with HasGameRef<DonkeyKongFlameGame> {
   PlatformComponent({required Vector2 position, required Vector2 size})
       : super(position: position, size: size) {
-    anchor = Anchor.topLeft;
+    // Use center as anchor for consistent positioning
+    anchor = Anchor.center;
   }
 
   @override
@@ -14,7 +15,7 @@ class PlatformComponent extends SpriteComponent with HasGameRef<DonkeyKongFlameG
     sprite = await Sprite.load("platform.png");
     add(RectangleHitbox(
       size: size,
-      anchor: Anchor.topLeft,
+      anchor: Anchor.center,
     ));
   }
 }

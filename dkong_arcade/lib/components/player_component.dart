@@ -1,6 +1,7 @@
 import "package:flame/components.dart";
 import "package:flame/collisions.dart";
 import "package:flutter/services.dart";
+import "package:flutter/material.dart" show Canvas;
 import "dart:math" as math;
 
 import "../dkong_game.dart";
@@ -18,18 +19,45 @@ class PlayerComponent extends SpriteComponent with HasGameRef<DonkeyKongFlameGam
   bool isOnGround = false;
   bool isOnLadder = false;
   bool canClimb = false;
+  
+  // Custom rendering to handle flipping
+  @override
+  void render(Canvas canvas) {
+    if (sprite == null) return;
+    
+    // Save canvas state
+    canvas.save();
+    
+    // Apply flip transformation if needed
+    if (!facingRight) {
+      // Flip horizontally
+      final centerX = position.x;
+      canvas.scale(-1, 1); // Flip horizontally
+      canvas.translate(-2 * centerX, 0); // Adjust position after flipping
+    }
+    
+    // Now call the parent render method
+    super.render(canvas);
+    
+    // Restore canvas state
+    canvas.restore();
+  }
 
   // Physics constants
   final double _moveSpeed = 120.0;
   final double _jumpSpeed = -300.0;
   final double _gravity = 980.0;
   final double _climbSpeed = 80.0;
-  double _velocity = 0;
+  // Make velocity public for collision handling
+  double velocity = 0;
   Vector2 _moveDirection = Vector2.zero();
 
   PlayerComponent() : super(size: Vector2.all(32)) {
     // Set anchor to bottom center for better platform collision
     anchor = Anchor.bottomCenter;
+    
+    // Start with player on the ground
+    isOnGround = true;
   }
 
   @override
@@ -78,19 +106,26 @@ class PlayerComponent extends SpriteComponent with HasGameRef<DonkeyKongFlameGam
         _moveDirection.y = -1;
         state = PlayerState.climbing;
         isOnLadder = true;
+        print("Climbing UP");
       } else if (gameRef.downDown && !gameRef.upDown) {
         _moveDirection.y = 1;
         state = PlayerState.climbing;
         isOnLadder = true;
+        print("Climbing DOWN");
       } else if (isOnLadder) {
         // Stop climbing animation when not moving
         _moveDirection.y = 0;
       }
     }
+    
+    // Print debug info
+    if (canClimb) {
+      print("Can climb: $canClimb, Is on ladder: $isOnLadder, Direction: $_moveDirection");
+    }
 
     // Jump only when on ground and not on ladder
     if (gameRef.jumpDown && isOnGround && !isOnLadder) {
-      _velocity = _jumpSpeed;
+      velocity = _jumpSpeed;
       state = PlayerState.jumping;
       isOnGround = false;
       AudioManager.playJump();
@@ -101,35 +136,35 @@ class PlayerComponent extends SpriteComponent with HasGameRef<DonkeyKongFlameGam
       isOnLadder = false;
       canClimb = false;
       state = PlayerState.jumping;
-      _velocity = _jumpSpeed * 0.7; // Reduced jump from ladder
+      velocity = _jumpSpeed * 0.7; // Reduced jump from ladder
       AudioManager.playJump();
     }
 
     // Apply horizontal flipping based on direction
-    if (facingRight) {
-      flipHorizontally = false;
-    } else {
-      flipHorizontally = true;
+    if (!facingRight) {
+      // Use render() override for flipping in a complete implementation
+      // For now, we'll just keep track of direction
+      // In a full implementation, we would use sprite flipping
     }
   }
 
   void _applyPhysics(double dt) {
     // Apply gravity when not on ladder
     if (!isOnLadder) {
-      _velocity += _gravity * dt;
+      velocity += _gravity * dt;
       
       // Cap falling velocity
-      if (_velocity > 500) {
-        _velocity = 500;
+      if (velocity > 500) {
+        velocity = 500;
       }
       
       // Set falling state
-      if (_velocity > 0 && !isOnGround) {
+      if (velocity > 0 && !isOnGround) {
         state = PlayerState.falling;
       }
     } else {
       // Reset velocity when on ladder
-      _velocity = 0;
+      velocity = 0;
     }
   }
 
@@ -144,7 +179,7 @@ class PlayerComponent extends SpriteComponent with HasGameRef<DonkeyKongFlameGam
       position.y += _moveDirection.y * _climbSpeed * dt;
     } else {
       // Apply vertical velocity (jumping/falling)
-      position.y += _velocity * dt;
+      position.y += velocity * dt;
     }
   }
 
@@ -168,11 +203,9 @@ class PlayerComponent extends SpriteComponent with HasGameRef<DonkeyKongFlameGam
   }
 
   void onCollisionWithPlatform(PlatformComponent platform) {
-    // Check if landing on top of platform (simple collision)
-    if (_velocity > 0 && position.y <= platform.position.y) {
-      position.y = platform.position.y;
-      _velocity = 0;
-      isOnGround = true;
+    // Now handled in _checkPlayerPlatformCollision
+    // Simply update state
+    if (isOnGround) {
       if (state == PlayerState.falling || state == PlayerState.jumping) {
         state = PlayerState.idle;
       }
@@ -180,25 +213,47 @@ class PlayerComponent extends SpriteComponent with HasGameRef<DonkeyKongFlameGam
   }
 
   void onCollisionWithLadder(LadderComponent ladder) {
-    // Determine if player can climb this ladder
-    final ladderRect = Rect.fromLTWH(
-      ladder.position.x - ladder.width/2, 
-      ladder.position.y - ladder.height, 
-      ladder.width, 
-      ladder.height
-    );
+    // Use simpler collision detection for ladders
+    final playerCenterX = position.x;
+    final playerBottom = position.y;
+    final playerTop = position.y - height;
     
-    final playerRect = Rect.fromLTWH(
-      position.x - width/2, 
-      position.y - height, 
-      width, 
-      height
-    );
+    final ladderTop = ladder.position.y - ladder.height/2;
+    final ladderBottom = ladder.position.y + ladder.height/2;
+    final ladderCenterX = ladder.position.x;
+    final ladderWidth = ladder.width;
     
-    if (ladderRect.overlaps(playerRect)) {
+    // Check if player and ladder overlap horizontally
+    final horizontalOverlap = (playerCenterX - width/2 <= ladderCenterX + ladderWidth/2) && 
+                              (playerCenterX + width/2 >= ladderCenterX - ladderWidth/2);
+    
+    // Check if player and ladder overlap vertically
+    final verticalOverlap = (playerBottom >= ladderTop) && (playerTop <= ladderBottom);
+    
+    final nearLadder = horizontalOverlap && verticalOverlap;
+    
+    // Print debug info
+    print("Player near ladder: $nearLadder (H: $horizontalOverlap, V: $verticalOverlap)");
+    print("Ladder pos: (${ladder.position.x}, ${ladder.position.y}), size: ${ladder.width}x${ladder.height}");
+    print("Player pos: (${position.x}, ${position.y}), size: ${width}x${height}");
+    
+    if (nearLadder) {
+      // Allow climbing
       canClimb = true;
       
-      // Center player on ladder when climbing
+      // Begin climbing if up/down pressed
+      if ((gameRef.upDown || gameRef.downDown) && !isOnLadder) {
+        isOnLadder = true;
+        state = PlayerState.climbing;
+        position.x = ladder.position.x; // Center on ladder
+        
+        // Ensure we're not stuck in a platform by moving player slightly
+        if (gameRef.upDown) {
+          position.y -= 5; // Move up slightly to get off platform
+        }
+      }
+      
+      // Keep player centered on ladder while climbing
       if (isOnLadder) {
         position.x = ladder.position.x;
       }
@@ -257,10 +312,10 @@ class PlayerComponent extends SpriteComponent with HasGameRef<DonkeyKongFlameGam
     this.position = position;
     state = PlayerState.idle;
     facingRight = true;
-    isOnGround = false;
+    isOnGround = true; // Start on ground
     isOnLadder = false;
     canClimb = false;
-    _velocity = 0;
+    velocity = 0;
   }
 }
 

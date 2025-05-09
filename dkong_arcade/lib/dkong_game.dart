@@ -152,16 +152,25 @@ class DonkeyKongFlameGame extends FlameGame with HasCollisionDetection {
       // Play barrel roll sound
       AudioManager.playBarrelRoll();
       
-      // Create the barrel
+      // Create the barrel at Kong's position
       final barrel = BarrelComponent(
         position: Vector2(
           kongRef!.position.x,
-          kongRef!.position.y - 20,
+          kongRef!.position.y + 20, // Adjust position to be below Kong
         ),
       );
       
+      // Find the platform Kong is on to place barrel correctly
+      if (platforms.isNotEmpty && platforms.length >= 4) {
+        // Use the top platform (platform index 3)
+        final topPlatform = platforms[3];
+        barrel.position.y = topPlatform.position.y - topPlatform.height/2 - barrel.height/2;
+      }
+      
       barrels.add(barrel);
       add(barrel);
+      
+      print("Spawned barrel at ${barrel.position}");
     }
   }
   
@@ -171,14 +180,25 @@ class DonkeyKongFlameGame extends FlameGame with HasCollisionDetection {
     
     // Reset climbing state each frame
     playerRef!.canClimb = false;
-    if (!playerRef!.isOnLadder) {
-      playerRef!.isOnGround = false;
-    }
     
-    // Check platform collisions
-    for (final platform in platforms) {
-      if (_checkPlayerPlatformCollision(platform)) {
-        playerRef!.onCollisionWithPlatform(platform);
+    // Only reset isOnGround if not climbing a ladder and not already on a platform
+    if (!playerRef!.isOnLadder) {
+      // We'll temporarily set this to false, and the platform collision check will set it back to true
+      bool wasOnGround = playerRef!.isOnGround;
+      playerRef!.isOnGround = false;
+      
+      // Check platform collisions - this will set isOnGround to true if on a platform
+      bool foundPlatform = false;
+      for (final platform in platforms) {
+        if (_checkPlayerPlatformCollision(platform)) {
+          playerRef!.onCollisionWithPlatform(platform);
+          foundPlatform = true;
+        }
+      }
+      
+      // If we just fell off a platform, immediately set falling state
+      if (wasOnGround && !playerRef!.isOnGround && playerRef!.state != PlayerState.jumping) {
+        playerRef!.state = PlayerState.falling;
       }
     }
     
@@ -209,31 +229,48 @@ class DonkeyKongFlameGame extends FlameGame with HasCollisionDetection {
   bool _checkPlayerPlatformCollision(PlatformComponent platform) {
     if (playerRef == null) return false;
     
+    // Get player's feet position (bottom center of sprite)
     final playerFeet = playerRef!.position.y;
-    final playerWidth = playerRef!.width;
+    
+    // Get platform position (center of sprite)
     final platformY = platform.position.y;
+    final platformTop = platformY - platform.height / 2;
     final platformX = platform.position.x;
     final platformWidth = platform.width;
     
-    // Check if player is within horizontal bounds of platform
+    // Player's horizontal position (center)
     final playerCenterX = playerRef!.position.x;
     
+    // Check if player is within horizontal bounds of platform
     final onPlatformX = playerCenterX >= platformX - platformWidth/2 && 
                         playerCenterX <= platformX + platformWidth/2;
     
-    // Check if player is at the right height to land on platform
-    // Only allow platform collision when falling (positive velocity)
-    final feetNearPlatform = playerFeet >= platformY - 5 && 
-                             playerFeet <= platformY + 5 &&
-                             !playerRef!.isOnLadder &&
-                             playerRef!.state != PlayerState.jumping;
+    // Print debug info to understand positions
+    print('Player feet Y: $playerFeet, Platform top Y: $platformTop');
+    print('Player velocity: ${playerRef!.velocity}');
     
-    return onPlatformX && feetNearPlatform;
+    // Check if player is at the right height to land on platform
+    // Player must be falling (positive velocity) to land
+    final feetNearPlatform = playerFeet >= platformTop - 2 && 
+                             playerFeet <= platformTop + 2 &&
+                             playerRef!.velocity >= 0 &&  // Must be falling
+                             !playerRef!.isOnLadder;
+    
+    // Set player on ground if collision detected
+    if (onPlatformX && feetNearPlatform) {
+      playerRef!.position.y = platformTop;
+      playerRef!.velocity = 0;
+      playerRef!.isOnGround = true;
+      return true;
+    }
+    
+    return false;
   }
   
   bool _checkPlayerLadderCollision(LadderComponent ladder) {
     if (playerRef == null) return false;
     
+    // Get player's rectangle (centered on player's position)
     final playerRect = Rect.fromLTWH(
       playerRef!.position.x - playerRef!.width/2,
       playerRef!.position.y - playerRef!.height,
@@ -241,13 +278,19 @@ class DonkeyKongFlameGame extends FlameGame with HasCollisionDetection {
       playerRef!.height
     );
     
+    // Get ladder's rectangle (centered on ladder's position)
     final ladderRect = Rect.fromLTWH(
       ladder.position.x - ladder.width/2,
-      ladder.position.y - ladder.height,
+      ladder.position.y - ladder.height/2,
       ladder.width,
       ladder.height
     );
     
+    // Print ladder position for debugging
+    print('Ladder pos: ${ladder.position}, Player pos: ${playerRef!.position}');
+    print('Ladder height: ${ladder.height}, Player height: ${playerRef!.height}');
+    
+    // Check if player overlaps with ladder
     return playerRect.overlaps(ladderRect);
   }
   
@@ -346,11 +389,22 @@ class DonkeyKongFlameGame extends FlameGame with HasCollisionDetection {
       if (currentPlatform != null) {
         // Roll along the platform
         final platformDirection = _getPlatformRollDirection(currentPlatform);
-        barrel.position.x += platformDirection * 150 * dt;
-        barrel.position.y = currentPlatform.position.y - barrel.height / 2;
+        barrel.position.x += platformDirection * 180 * dt; // Increased speed
+        
+        // Keep barrel on top of platform
+        barrel.position.y = currentPlatform.position.y - currentPlatform.height/2 - barrel.height/2;
+        
+        // Check if barrel reached platform edge
+        final platformLeft = currentPlatform.position.x - currentPlatform.width/2;
+        final platformRight = currentPlatform.position.x + currentPlatform.width/2;
+        
+        if (barrel.position.x < platformLeft + 10 || barrel.position.x > platformRight - 10) {
+          // Barrel falls off platform
+          barrel.position.y += 5; // Start falling
+        }
       } else {
-        // Apply gravity
-        barrel.position.y += 300 * dt;
+        // Apply gravity (faster falling)
+        barrel.position.y += 350 * dt;
       }
     }
   }
@@ -369,10 +423,24 @@ class DonkeyKongFlameGame extends FlameGame with HasCollisionDetection {
   }
   
   int _getPlatformRollDirection(PlatformComponent platform) {
-    // Alternate roll direction based on platform Y position
-    // This creates the zigzag pattern seen in Donkey Kong
+    // Get platform index
     final platformIndex = platforms.indexOf(platform);
-    return platformIndex % 2 == 0 ? 1 : -1;
+    
+    // If platform not found, default to right
+    if (platformIndex < 0) return 1;
+    
+    // Determine direction based on platform index
+    // Floor 1 (index 0) - roll right
+    // Floor 2 (index 1) - roll left 
+    // Floor 3 (index 2) - roll right
+    // Floor 4 (index 3) - roll left
+    switch (platformIndex) {
+      case 0: return 1;  // bottom - right
+      case 1: return -1; // 2nd - left
+      case 2: return 1;  // 3rd - right
+      case 3: return -1; // top - left
+      default: return platformIndex % 2 == 0 ? 1 : -1; // fallback
+    }
   }
 
   @override
@@ -390,88 +458,98 @@ class DonkeyKongFlameGame extends FlameGame with HasCollisionDetection {
     ladders.clear();
     barrels.clear();
     
-    final margin = 24.0;
-    final padBottom = 140.0;
-    final platformHeight = 16.0;
-    final nLevels = 5; // Increase to 5 levels for better gameplay
-    final levelSpacing = (size.y - padBottom - 100) / (nLevels - 1);
-
-    // Place platforms (bottom to top)
-    List<double> platformYs = List.generate(nLevels, (i) => size.y - padBottom - i * levelSpacing);
+    // Simple level design with 4 floors in a zigzag pattern
+    final margin = 20.0;
+    final platformHeight = 20.0;
+    final screenHeight = size.y;
+    final screenWidth = size.x;
+    final bottomPadding = 140.0;
     
-    // Create proper zigzag pattern for platforms
-    List<double> platformXs = [
-      margin,                // Bottom platform starts from left
-      size.x * 0.25,         // Second platform starts from right side
-      margin,                // Third platform starts from left
-      size.x * 0.25,         // Fourth platform starts from right
-      margin,                // Top platform with princess starts from left
-    ];
+    // Calculate level positions (4 levels, evenly spaced)
+    final levelCount = 4;
+    final levelSpacing = (screenHeight - bottomPadding - 80) / (levelCount - 1);
     
-    List<double> platformWidths = [
-      size.x - margin * 2,   // Full width for bottom platform
-      size.x * 0.7,          // Partial width for second
-      size.x * 0.7,          // Partial width for third
-      size.x * 0.7,          // Partial width for fourth
-      size.x * 0.6,          // Partial width for top platform
-    ];
+    // Floor Y positions (bottom to top)
+    List<double> floorYs = List.generate(
+      levelCount, 
+      (i) => screenHeight - bottomPadding - i * levelSpacing
+    );
     
-    // Create all platforms
-    for (int i = 0; i < nLevels; i++) {
-      final platform = PlatformComponent(
-        position: Vector2(platformXs[i], platformYs[i]),
-        size: Vector2(platformWidths[i], platformHeight),
-      );
-      platforms.add(platform);
-      add(platform);
-    }
+    // Create platforms with alternate directions
+    // Floor 1 (bottom) - full width
+    final platform1 = PlatformComponent(
+      position: Vector2(screenWidth / 2, floorYs[0]),
+      size: Vector2(screenWidth - margin * 2, platformHeight),
+    );
+    platforms.add(platform1);
+    add(platform1);
     
-    // Add ladders between platforms - ensure they connect properly
-    // First ladder - from bottom to second level (left side)
+    // Floor 2 - right side to center  
+    final platform2 = PlatformComponent(
+      position: Vector2(screenWidth * 0.65, floorYs[1]),
+      size: Vector2(screenWidth * 0.7 - margin, platformHeight),
+    );
+    platforms.add(platform2);
+    add(platform2);
+    
+    // Floor 3 - left side to center
+    final platform3 = PlatformComponent(
+      position: Vector2(screenWidth * 0.35, floorYs[2]),
+      size: Vector2(screenWidth * 0.7 - margin, platformHeight),
+    );
+    platforms.add(platform3);
+    add(platform3);
+    
+    // Floor 4 (top) - center
+    final platform4 = PlatformComponent(
+      position: Vector2(screenWidth / 2, floorYs[3]),
+      size: Vector2(screenWidth * 0.5 - margin, platformHeight),
+    );
+    platforms.add(platform4);
+    add(platform4);
+    
+    // Create ladders to connect platforms
+    // Ladder 1 - connects floor 1 to floor 2 (left side)
     final ladder1 = LadderComponent(
-      position: Vector2(margin + 60, platformYs[0] - levelSpacing), 
-      size: Vector2(20, levelSpacing)
+      position: Vector2(screenWidth * 0.3, (floorYs[0] + floorYs[1]) / 2),
+      size: Vector2(40, floorYs[0] - floorYs[1] - platformHeight),
     );
     ladders.add(ladder1);
     add(ladder1);
     
-    // Second ladder - from second to third level (right side)
+    // Ladder 2 - connects floor 2 to floor 3 (right side)
     final ladder2 = LadderComponent(
-      position: Vector2(platformXs[1] + platformWidths[1] - 60, platformYs[1] - levelSpacing), 
-      size: Vector2(20, levelSpacing)
+      position: Vector2(screenWidth * 0.7, (floorYs[1] + floorYs[2]) / 2),
+      size: Vector2(40, floorYs[1] - floorYs[2] - platformHeight),
     );
     ladders.add(ladder2);
     add(ladder2);
     
-    // Third ladder - from third to fourth level (left side)
+    // Ladder 3 - connects floor 3 to floor 4 (left side)
     final ladder3 = LadderComponent(
-      position: Vector2(margin + 100, platformYs[2] - levelSpacing), 
-      size: Vector2(20, levelSpacing)
+      position: Vector2(screenWidth * 0.3, (floorYs[2] + floorYs[3]) / 2),
+      size: Vector2(40, floorYs[2] - floorYs[3] - platformHeight),
     );
     ladders.add(ladder3);
     add(ladder3);
     
-    // Fourth ladder - from fourth to top level (right side)
-    final ladder4 = LadderComponent(
-      position: Vector2(platformXs[3] + platformWidths[3] - 80, platformYs[3] - levelSpacing), 
-      size: Vector2(20, levelSpacing)
-    );
-    ladders.add(ladder4);
-    add(ladder4);
-    
-    // Player: starting position on bottom platform
-    _playerStartPosition = Vector2(margin + 24, platformYs[0] - 32);
+    // Player starting position on bottom platform
+    _playerStartPosition = Vector2(margin + 40, floorYs[0] - platformHeight/2);
     final player = PlayerComponent()..position = _playerStartPosition.clone();
     playerRef = player;
     add(player);
     
-    // Kong at the top left side
-    final kong = KongComponent(position: Vector2(platformXs[4] + 40, platformYs[4] - 40));
+    // Kong at left side of top platform
+    final kong = KongComponent(
+      position: Vector2(screenWidth / 2 - 60, floorYs[3] - platformHeight/2 - 20)
+    );
     kongRef = kong;
     add(kong);
     
-    // Princess at the top right side
-    add(PrincessComponent(position: Vector2(platformXs[4] + platformWidths[4] - 44, platformYs[4] - 36)));
+    // Princess at right side of top platform
+    add(PrincessComponent(
+      position: Vector2(screenWidth / 2 + 60, floorYs[3] - platformHeight/2 - 18)
+    ));
     
     // Start barrel spawning after a delay
     startBarrelSpawning();
